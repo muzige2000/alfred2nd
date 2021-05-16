@@ -67,7 +67,16 @@ def crawl(code):
     price_kimsUniversal_100, price_kimsUniversal_90, price_kimsUniversal_80 = price_kimsUniversal(EPS, EPS_E, ROE, ROE_E, ROE_avg)
     price_RIM_100, price_RIM_90, price_RIM_80 = price_RIM(ROE, ROE_E, ROE_avg, equity, equity_E, equity_avg, shares)
 
-    print(data)
+    try:
+        EPS4y = data['재무하이라이트']['EPS']['year'][1]
+        EPS3y = data['재무하이라이트']['EPS']['year'][2]
+        EPS2y = data['재무하이라이트']['EPS']['year'][3]
+        EPS1y = data['재무하이라이트']['EPS']['year'][4]
+        EPS1E = data['재무하이라이트']['EPS']['year'][5]
+        dividend = data['배당']['배당수익률'][2]
+        PEG_rate = PEG(EPS4y, EPS3y, EPS2y, EPS1y, EPS1E, PER, PER_E, dividend)
+    except:
+        PEG_rate = None
 
     calculated_value = {
         '내재가치': {
@@ -87,9 +96,11 @@ def crawl(code):
                 '90%': priceInstAvg_90,
                 '80%': priceInstAvg_80,
             },
+            'PEG': PEG_rate,
         }
     }
     data.update(calculated_value)
+
 
 
     # rowData
@@ -126,6 +137,8 @@ def crawl(code):
     rowData['만능80'] = data['내재가치']['만능공식']['80%']
     rowData['만능90'] = data['내재가치']['만능공식']['90%']
     rowData['만능100'] = data['내재가치']['만능공식']['100%']
+    try:    rowData['PEG'] = data['내재가치']['PEG']
+    except: rowData['PEG'] = None
     try:    rowData['기관평균'] = data['내재가치']['기관평균']['100%']
     except: rowData['기관평균'] = None
     try:    rowData['배당성향_당기'] = data['배당']['배당성향'][3]
@@ -214,8 +227,8 @@ def crawl(code):
     except: rowData['순이익_2Y'] = None
     try:    rowData['순이익_3Y'] = data['재무하이라이트']['순이익']['year'][2]
     except: rowData['순이익_3Y'] = None
-    try:    rowData['순이익_5Y'] = data['재무하이라이트']['순이익']['year'][1]
-    except: rowData['순이익_5Y'] = None
+    try:    rowData['순이익_4Y'] = data['재무하이라이트']['순이익']['year'][1]
+    except: rowData['순이익_4Y'] = None
     try:    rowData['순이익_5Y'] = data['재무하이라이트']['순이익']['year'][0]
     except: rowData['순이익_5Y'] = None
     try:    rowData['순차입금비율_1Y'] = data['재무비율']['순차입금비율'][-1]

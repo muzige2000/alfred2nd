@@ -4,7 +4,7 @@ import time
 from requests.api import head
 from bs4 import BeautifulSoup as bs4
 from fake_useragent import UserAgent
-from datetime import datetime
+from datetime import datetime, timedelta
 from pprintpp import pprint as pp
 import numpy_financial as npf
 import json
@@ -55,6 +55,14 @@ def yieldRate(currentValue, pastValue):
 	result = round(((currentValue-pastValue)/pastValue)*100, 2)
 	return result
 
+def yesterday():
+	yesterday = datetime.today() - timedelta(1)
+	yesterday = yesterday.strftime("%Y-%m-%d")
+	return yesterday
+def today():
+	result = datetime.today().strftime("%Y-%m-%d")
+	return result
+
 # 크롤러
 def fnSnapshot(stock):
 	# fnguide 기업정보 > snapshot
@@ -96,8 +104,9 @@ def fnSnapshot(stock):
 		d_summary_1 = soup_single_str('#bizSummaryHeader', soup)
 		d_summary_2 = soup_single_str('#bizSummaryContent li:first-child', soup)
 		d_summary_3 = soup_single_str('#bizSummaryContent li:last-child', soup)
-		d_outstanding_shares = int(soup_single_str('#svdMainGrid1 table tr:last-child td:nth-child(2)', soup).split("/")[0].replace(',', ''))
 		d_treasury_shares = soup_single_str('#svdMainGrid5 table tr:nth-child(5) td:nth-child(3)', soup)
+		try:d_outstanding_shares = int(soup_single_str('#svdMainGrid1 table tr:last-child td:nth-child(2)', soup).split("/")[0].replace(',', ''))
+		except: d_outstanding_shares = 0
 		try: d_treasury_shares = int(d_treasury_shares)
 		except: d_treasury_shares = 0
 
@@ -360,6 +369,48 @@ def nvPrice(stock):
 	pp('크롤완료: 네이버 매매동향')
 	return dict
 
+def hankyungIndustry():
+	with req.Session() as s:
+		date = today()
+		ua = UserAgent()
+		url = 'http://consensus.hankyung.com/apps.analysis/analysis.list?skinType=industry&search_date=1w&search_text=&now_page=1&type=more'
+		headers = {
+			'user-agent': ua.safari,
+			'referer': 'http://consensus.hankyung.com/apps.analysis/analysis.list?skinType=industry&search_date=1w&search_text=',
+			'host': "consensus.hankyung.com",
+			}
+		r = req.get(url, headers=headers)
+		r.encoding = "EUC-KR"
+		soup = bs4(r.text, "html.parser").select('.table_style01 tbody tr')
+
+		list = []
+		dict = {
+			'산업리포트': {
+				date: []
+			}
+		}
+
+		for val in soup:
+			report_date = val.select('.txt_number')[0].text
+			report_title = val.select('.text_l a')[0].text
+			report_url = "http://consensus.hankyung.com{}".format(val.select('td:last-child a[href]')[0]['href'])
+			print(report_date)
+			print(report_title)
+			print(report_url)
+			print(date)
+			print('-----------')
+
+			if report_date == date:
+				appendItem = {}
+				appendItem['제목'] = report_title
+				appendItem['링크'] = report_url
+
+
+				dict['산업리포트'][date].append(appendItem)
+
+
+	pp('크롤완료: 한경컨센서스-산업')
+	return dict
 
 # 내재가치 계산
 def price_kimsUniversal(EPS, EPS_E, ROE, ROE_E, ROE_avg):
@@ -384,7 +435,7 @@ def price_kimsUniversal(EPS, EPS_E, ROE, ROE_E, ROE_avg):
 	return value_100, value_90, value_80
 
 def price_RIM(ROE, ROE_E, ROE_avg, 자본, 자본_E, 자본_avg, 주식수):
-	요구수익률 = 0.0805
+	요구수익률 = 0.0821
 
 	def rim(roe, equity, 지속계수):
 		Y10 = {
@@ -429,3 +480,29 @@ def price_RIM(ROE, ROE_E, ROE_avg, 자본, 자본_E, 자본_avg, 주식수):
 		value_80 = None
 	
 	return value_100, value_90, value_80
+
+def PEG(EPS4y, EPS3y, EPS2y, EPS1y, EPS1E, PER, PER_E, dividend):
+	'''
+		r1: eps 4년-3년 성장률
+		r2: eps 3년-2년 성장률
+		r3: eps 2년-1년 성장률
+		r1E: eps 1년-1E년 성장률
+		per: 최근 per
+		dividend: 최근 배당
+	'''
+
+	r1 = yieldRate(EPS3y, EPS4y)
+	r2 = yieldRate(EPS2y, EPS3y)
+	r3 = yieldRate(EPS1y, EPS2y)
+	if EPS1E == None:
+		r1E = (r1 + (r2*2) + (r3*3)) / 6
+	else:
+		r1E = yieldRate(EPS1E, EPS1y)
+
+	if PER_E == None:
+		PER_E = PER
+
+	장기성장률 = (r1 + (r2*2) + (r3*3) + (r1E*6)) / 12
+	result = round((장기성장률 + dividend) / PER_E, 2)
+
+	return result
