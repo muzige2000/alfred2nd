@@ -1,6 +1,11 @@
 # alfred2nd
 
-파이썬은 알아서 설치 
+1. 파이썬은 알아서 설치 
+2. chromedriver 설치 
+```
+brew install chromedriver
+```
+
 
 ```
 python play.py
